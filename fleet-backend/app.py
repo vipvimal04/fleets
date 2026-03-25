@@ -22,8 +22,8 @@ def upload():
     df["total_expense"] = df["fuel_cost"] + df["other_expense"]
     df["profit"] = df["revenue"] - df["total_expense"]
 
-    df["margin"] = (df["profit"] / df["revenue"]) * 100
-    df["fuel_percent"] = (df["fuel_cost"] / df["revenue"]) * 100
+    df["margin"] = round((df["profit"] / df["revenue"]) * 100, 2)
+    df["fuel_percent"] = round((df["fuel_cost"] / df["revenue"]) * 100, 2)
 
 
     # VEHICLE SUMMARY
@@ -38,8 +38,8 @@ def upload():
     ).reset_index()
 
     vehicle_summary["margin"] = (
-        vehicle_summary["profit"] /
-        vehicle_summary["revenue"] * 100
+        round(vehicle_summary["profit"] /
+        vehicle_summary["revenue"] * 100, 2)
     )
 
     vehicle_summary["fuel_percent"] = (
@@ -60,8 +60,8 @@ def upload():
     ).reset_index()
 
     driver_summary["margin"] = (
-        driver_summary["profit"] /
-        driver_summary["revenue"] * 100
+        round(driver_summary["profit"] /
+        driver_summary["revenue"] * 100, 2)
     )
 
 
@@ -72,12 +72,37 @@ def upload():
 
     daily_revenue["date"] = daily_revenue["date"].astype(str)
 
+    alerts = []
+
+    # Low margin vehicles
+    for _, row in vehicle_summary.iterrows():
+        if row["margin"] < 30:
+            alerts.append(
+                f"{row['vehicle_number']}({row['vehicle_type']}) low profit margin ({round(row['margin'],1)}%)"
+            )
+
+    # High fuel
+    for _, row in vehicle_summary.iterrows():
+        fuel_percent = (row["fuel_cost"] / row["revenue"]) * 100
+        if fuel_percent > 50:
+            alerts.append(
+                f"{row['vehicle_number']}({row['vehicle_type']}) high fuel usage ({round(fuel_percent,1)}%)"
+            )
+
+    # Low driver performance
+    avg_margin = driver_summary["margin"].mean()
+
+    for _, row in driver_summary.iterrows():
+        if row["margin"] < avg_margin - 5:
+            alerts.append(
+                f"{row['driver_name']} below average performance"
+            )
 
     # KPI
     total_revenue = df["revenue"].sum()
     total_expense = df["total_expense"].sum()
     total_profit = df["profit"].sum()
-    total_margin = (total_profit / total_revenue) * 100
+    total_margin = round((total_profit / total_revenue) * 100, 2)
 
 
     analytics_data = {
@@ -93,7 +118,9 @@ def upload():
 
         "driver_summary": driver_summary.to_dict(orient="records"),
 
-        "daily_revenue": daily_revenue.to_dict(orient="records")
+        "daily_revenue": daily_revenue.to_dict(orient="records"),
+
+        "alerts": alerts
     }
 
     return jsonify({"message": "File processed successfully"})
